@@ -1,0 +1,224 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BerryGuard AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* ===============================
+           Common image container
+           =============================== */
+        .image-box {
+            width: 100%;
+            height: 210px;
+            max-width: 280px;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(148,163,184,0.3);
+            background: rgba(2,6,23,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ===============================
+           Glass card look
+           =============================== */
+        .glass-card {
+            background: rgba(15,23,42,0.45);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148,163,184,0.2);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-900 text-slate-100">
+
+<!-- ======================================================
+     NAVBAR (fixed)
+====================================================== -->
+<header class="fixed top-0 left-0 w-full z-50 border-b border-slate-800 bg-slate-950/60 backdrop-blur">
+    <nav class="max-w-6xl mx-auto flex items-center justify-between py-4 px-6">
+        <h1 class="text-lg font-bold">BerryGuard <span class="text-emerald-400">AI</span></h1>
+        <div class="flex gap-6 text-sm font-semibold">
+            <span class="text-emerald-400">Home</span>
+            <span>Result</span>
+        </div>
+    </nav>
+</header>
+
+<!-- ======================================================
+     MAIN ONE-PAGE LAYOUT
+====================================================== -->
+<main class="pt-28 pb-20 px-6 flex justify-center">
+    <div class="glass-card w-full max-w-6xl rounded-3xl p-8 flex flex-col gap-10">
+
+        <!-- ==================================================
+             INPUT SECTION (SMALL, ALWAYS TOP)
+             👉 width controlled here
+        ================================================== -->
+        <div class="flex justify-center">
+            <div class="glass-card w-full max-w-sm rounded-2xl p-4">
+                <h2 class="text-center text-base font-semibold mb-3">
+                    Upload Leaf Image
+                </h2>
+
+                <!-- Upload form -->
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Drag & Drop -->
+                    <div id="drop-zone"
+                        class="border-2 border-dashed border-emerald-400/60 rounded-lg p-4 text-center cursor-pointer text-sm">
+                        Drag & Drop Image
+                        <input type="file" name="image" id="id_image" class="hidden" accept="image/*">
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit"
+                        class="mt-3 w-full bg-emerald-500 text-slate-900 text-sm font-semibold py-2 rounded-full">
+                        Analyze Image
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================================================
+             RESULT SECTION (ALWAYS VISIBLE, FIXED SIZE)
+        ================================================== -->
+        <div id="result-section">
+
+            <!-- Pass YOLO confidences safely -->
+            {{ yolo_confidences|json_script:"yolo-conf-data" }}
+
+            <h2 class="text-lg font-semibold mb-4">Analysis Results</h2>
+
+            <!-- Result grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[320px]">
+
+                <!-- ================= INPUT IMAGE ================= -->
+                <div class="glass-card p-4 rounded-2xl">
+                    <p class="text-xs mb-2">Input Image</p>
+                    <div class="image-box">
+                        {% if uploaded %}
+                            <img src="{{ input_img }}" class="object-cover w-full h-full">
+                        {% else %}
+                            <span class="text-xs text-slate-400">Waiting</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ================= GRAD-CAM ================= -->
+                <div class="glass-card p-4 rounded-2xl">
+                    <p class="text-xs mb-2">Grad-CAM</p>
+                    <div class="image-box">
+                        {% if grad_img %}
+                            <img src="{{ grad_img }}" class="object-cover w-full h-full">
+                        {% else %}
+                            <span class="text-xs text-slate-400">Not generated</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ================= YOLO ================= -->
+                <div class="glass-card p-4 rounded-2xl">
+                    <p class="text-xs mb-2">YOLO Detection</p>
+                    <div class="image-box">
+                        {% if yolo_img %}
+                            <img src="{{ yolo_img }}" class="object-cover w-full h-full">
+                        {% else %}
+                            <span class="text-xs text-slate-400">No detection</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ================= PREDICTION + GRAPH ================= -->
+                <div class="bg-white rounded-2xl p-4 flex flex-col">
+                    <h3 class="text-sm font-bold text-slate-800 mb-2">Prediction</h3>
+
+                    <div class="text-xs text-slate-700 space-y-1 mb-3">
+                        <p><b>True:</b> {{ true_class }}</p>
+                        <p><b>Predicted:</b> {{ class_name }}</p>
+                        <p><b>Confidence:</b> {{ confidence }}%</p>
+                    </div>
+
+                    <!-- Graph -->
+                    <canvas id="yoloConfChart" height="90"></canvas>
+
+                    <a href="{% url 'home' %}"
+                        class="mt-3 text-center bg-emerald-600 text-white text-xs py-2 rounded-full">
+                        Try Another Image
+                    </a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<!-- ======================================================
+     JS LOGIC (SAFE, NO PAGE SHIFT)
+====================================================== -->
+<script>
+    feather.replace();
+
+    // -------- YOLO confidence graph --------
+    const confEl = document.getElementById("yolo-conf-data");
+    if (confEl) {
+        const confData = JSON.parse(confEl.textContent);
+
+        if (confData.length > 0) {
+            new Chart(document.getElementById("yoloConfChart"), {
+                type: "line",
+                data: {
+                    labels: confData.map((_, i) => `Box ${i + 1}`),
+                    datasets: [{
+                        data: confData.map(v => v * 100),
+                        borderColor: "#22c55e",
+                        backgroundColor: "transparent",
+                        pointRadius: 2,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: { stepSize: 25, callback: v => v + "%" }
+                        },
+                        x: { ticks: { maxTicksLimit: 5 } }
+                    }
+                }
+            });
+        }
+    }
+
+    // -------- Drag & Drop --------
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("id_image");
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("drop", e => {
+        e.preventDefault();
+        fileInput.files = e.dataTransfer.files;
+    });
+    dropZone.addEventListener("dragover", e => e.preventDefault());
+</script>
+
+</body>
+</html>
