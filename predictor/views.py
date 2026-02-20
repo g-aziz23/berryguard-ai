@@ -338,6 +338,9 @@ def home(request):
     try:
         response = requests.post(HF_API_URL, json=payload, timeout=60)
         result = response.json()
+        
+        print("HF STATUS:", response.status_code)
+        print("HF RESPONSE:", response.text)
 
         # HF returns list
         # [predicted_class, confidence, gradcam_image_base64]
@@ -346,6 +349,7 @@ def home(request):
         gradcam_image = result["data"][2]
 
     except Exception as e:
+        print("ERROR:", str(e))
         predicted_class = "Prediction Error"
         confidence = 0
         gradcam_image = None
