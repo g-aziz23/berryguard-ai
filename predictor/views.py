@@ -264,7 +264,7 @@ from django.core.files.storage import FileSystemStorage
 
 
 # 🔵 Hugging Face Space API
-HF_API_URL = "https://abdulaziz368-berryguard-ai.hf.space/run/predict"
+HF_API_URL = "https://abdulaziz368-berryguard-ai.hf.space/api/predict"
 
 
 CLASSES = [
