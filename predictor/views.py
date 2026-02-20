@@ -188,12 +188,83 @@
 #     })
 
 
+# import os
+# import re
+# import uuid
+
+# from django.shortcuts import render
+# from django.core.files.storage import FileSystemStorage
+
+
+# CLASSES = [
+#     "Angular Leafspot",
+#     "Calcium Deficiency",
+#     "Healthy",
+#     "Leaf Scorch",
+#     "Leaf Spot",
+#     "Powdery Mildew",
+# ]
+
+
+# def extract_true_class(filename):
+#     name = os.path.splitext(filename)[0]
+#     name = re.sub(r"\d+", "", name)
+#     name = name.replace("_", " ").lower()
+
+#     for cls in CLASSES:
+#         if cls.lower() in name:
+#             return cls
+#     return "Unknown"
+
+
+# def unique_name(prefix, ext="jpg"):
+#     return f"{prefix}_{uuid.uuid4().hex[:10]}.{ext}"
+
+
+# def home(request):
+
+#     if request.method != "POST":
+#         return render(request, "predictor/home.html", {
+#             "uploaded": False,
+#             "predicted": False,
+#         })
+
+#     image = request.FILES.get("image")
+
+#     if not image:
+#         return render(request, "predictor/home.html", {
+#             "uploaded": False,
+#             "predicted": False,
+#         })
+
+#     fs = FileSystemStorage()
+#     filename = fs.save(image.name, image)
+#     img_url = fs.url(filename)
+
+#     true_class = extract_true_class(image.name)
+
+#     return render(request, "predictor/home.html", {
+#         "uploaded": True,
+#         "predicted": True,
+#         "input_img": img_url,
+#         "class_name": "Model temporarily disabled",
+#         "true_class": true_class,
+#         "confidence": 0,
+#         "yolo_confidences": [],
+#     })
+
 import os
 import re
 import uuid
+import base64
+import requests
 
 from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
+
+
+# 🔵 Hugging Face Space API
+HF_API_URL = "https://abdulaziz368-berryguard-ai.hf.space/run/predict"
 
 
 CLASSES = [
@@ -223,12 +294,18 @@ def unique_name(prefix, ext="jpg"):
 
 def home(request):
 
+    # -------------------
+    # GET
+    # -------------------
     if request.method != "POST":
         return render(request, "predictor/home.html", {
             "uploaded": False,
             "predicted": False,
         })
 
+    # -------------------
+    # Image upload
+    # -------------------
     image = request.FILES.get("image")
 
     if not image:
@@ -239,16 +316,47 @@ def home(request):
 
     fs = FileSystemStorage()
     filename = fs.save(image.name, image)
+    img_path = fs.path(filename)
     img_url = fs.url(filename)
 
     true_class = extract_true_class(image.name)
+
+    # -------------------
+    # Convert image → base64
+    # -------------------
+    with open(img_path, "rb") as f:
+        image_bytes = f.read()
+
+    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    payload = {
+        "data": [
+            f"data:image/jpeg;base64,{image_base64}"
+        ]
+    }
+
+    try:
+        response = requests.post(HF_API_URL, json=payload, timeout=60)
+        result = response.json()
+
+        # HF returns list
+        # [predicted_class, confidence, gradcam_image_base64]
+        predicted_class = result["data"][0]
+        confidence = result["data"][1]
+        gradcam_image = result["data"][2]
+
+    except Exception as e:
+        predicted_class = "Prediction Error"
+        confidence = 0
+        gradcam_image = None
 
     return render(request, "predictor/home.html", {
         "uploaded": True,
         "predicted": True,
         "input_img": img_url,
-        "class_name": "Model temporarily disabled",
+        "class_name": predicted_class,
         "true_class": true_class,
-        "confidence": 0,
+        "confidence": round(float(confidence), 2),
+        "grad_img": gradcam_image,
         "yolo_confidences": [],
     })
