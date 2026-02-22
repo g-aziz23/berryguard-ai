@@ -135,18 +135,20 @@ def home(request):
         "data": [image_base64]
     }
 
-    try:
-        response = requests.post(HF_API_URL, json=payload, timeout=120)
-        result = response.json()
+    response = requests.post(HF_API_URL, json=payload, timeout=120)
 
-        predicted_class = result["data"][0]
-        confidence = result["data"][1]
-        gradcam_image = result["data"][2]
+    print("STATUS:", response.status_code)
+    print("TEXT:", response.text)
 
-    except Exception as e:
-        predicted_class = "Prediction Error"
-        confidence = 0
-        gradcam_image = None
+    if response.status_code != 200:
+          predicted_class = "API Error"
+          confidence = 0
+          gradcam_image = None
+    else:
+         result = response.json()
+         predicted_class = result["data"][0]
+         confidence = result["data"][1]
+         gradcam_image = result["data"][2]
 
     return render(request, "predictor/home.html", {
         "input_img": img_url,
